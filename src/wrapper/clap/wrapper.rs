@@ -3153,6 +3153,29 @@ impl<P: ClapPlugin> Wrapper<P> {
         }
         let length = u64::from_le_bytes(length_bytes);
 
+        // The length prefix comes off the host's stream and is therefore
+        // untrusted: a truncated or corrupt state decodes to an arbitrary
+        // `u64`, and `Vec::with_capacity` **aborts the process** on allocation
+        // failure rather than returning an error. An abort cannot be caught by
+        // the host, so a damaged project file takes the whole DAW down with it.
+        //
+        // Found by `clap-validator`'s `state-invalid-random`, which feeds 3x1MB
+        // of random bytes to `clap_plugin_state::load()`: the prefix decoded to
+        // roughly one exabyte and Rust aborted.
+        //
+        // 64 MiB is far beyond any plausible plugin state — this wrapper writes
+        // JSON of the parameters and the persisted fields — while still being a
+        // bound rather than a guess at the true size.
+        const MAX_STATE_BYTES: u64 = 64 * 1024 * 1024;
+        if length > MAX_STATE_BYTES {
+            nih_debug_assert_failure!(
+                "State length {} exceeds the {} byte maximum; refusing to load.",
+                length,
+                MAX_STATE_BYTES
+            );
+            return false;
+        }
+
         let mut read_buffer: Vec<u8> = Vec::with_capacity(length as usize);
         if !read_stream(&*stream, read_buffer.spare_capacity_mut()) {
             nih_debug_assert_failure!(
