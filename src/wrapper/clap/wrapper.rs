@@ -2656,9 +2656,12 @@ impl<P: ClapPlugin> Wrapper<P> {
         check_null_ptr!((), plugin, (*plugin).plugin_data);
         let wrapper = &*((*plugin).plugin_data as *const Self);
 
-        let mut editor_handle = wrapper.editor_handle.lock();
-        if editor_handle.is_some() {
-            *editor_handle = None;
+        // ⛔ Taken out under the lock, dropped after it is released: closing the window can pump
+        //    messages too, and a GUI task run re-entrantly from that pump locks `editor_handle`.
+        //    See `ext_gui_set_parent`.
+        let handle = wrapper.editor_handle.lock().take();
+        if handle.is_some() {
+            drop(handle);
         } else {
             nih_debug_assert_failure!("Tried destroying editor while the editor was not active");
         }
@@ -2765,8 +2768,15 @@ impl<P: ClapPlugin> Wrapper<P> {
         let window = &*window;
 
         let result = {
-            let mut editor_handle = wrapper.editor_handle.lock();
-            if editor_handle.is_none() {
+            // ⛔ Checked here, but NOT held while the window is built below. Opening an editor
+            //    window can pump this thread's message queue (WebView2 does, while it waits for its
+            //    environment), and that can run this plugin's own GUI tasks re-entrantly, on this
+            //    same thread - and `Task::ParameterValueChanged` locks `editor_handle`. The
+            //    mutex is not re-entrant, so holding it across `spawn()` deadlocked the thread on
+            //    itself: pluginval's "Editor Automation" test hung forever after its "Automation"
+            //    test had queued parameter changes. The handle is stored once `spawn()` returns.
+            let already_attached = wrapper.editor_handle.lock().is_some();
+            if !already_attached {
                 let api = CStr::from_ptr(window.api);
                 let parent_handle = if api == CLAP_WINDOW_API_X11 {
                     ParentWindowHandle::X11Window(window.specific.x11 as u32)
@@ -2780,15 +2790,14 @@ impl<P: ClapPlugin> Wrapper<P> {
                 };
 
                 // This extension is only exposed when we have an editor
-                *editor_handle = Some(
-                    wrapper
-                        .editor
-                        .borrow()
-                        .as_ref()
-                        .unwrap()
-                        .lock()
-                        .spawn(parent_handle, wrapper.clone().make_gui_context()),
-                );
+                let handle = wrapper
+                    .editor
+                    .borrow()
+                    .as_ref()
+                    .unwrap()
+                    .lock()
+                    .spawn(parent_handle, wrapper.clone().make_gui_context());
+                *wrapper.editor_handle.lock() = Some(handle);
 
                 true
             } else {
