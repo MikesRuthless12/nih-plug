@@ -3190,6 +3190,14 @@ impl<P: ClapPlugin> Wrapper<P> {
                 let success = wrapper.set_state_inner(&mut state);
                 if success {
                     nih_trace!("Loaded state ({} bytes)", read_buffer.len());
+
+                    // The host loaded new parameter values, so it has to be told they
+                    // changed, exactly as `set_state` does for a state set from the GUI.
+                    // Without this a host keeps showing the old values after opening a
+                    // project, and clap-validator's `state-reproducibility-*` tests fail
+                    // with "parameter values changed without a rescan request".
+                    let task_posted = wrapper.schedule_gui(Task::RescanParamValues);
+                    nih_debug_assert!(task_posted, "The task queue is full, dropping task...");
                 }
 
                 success
