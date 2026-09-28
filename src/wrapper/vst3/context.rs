@@ -5,7 +5,7 @@ use std::sync::atomic::Ordering;
 use std::sync::Arc;
 use vst3_sys::vst::IComponentHandler;
 
-use crate::prelude::{
+use crate::prelude::{ProcessMode, 
     GuiContext, InitContext, ParamPtr, PluginApi, PluginNoteEvent, PluginState, ProcessContext,
     Transport, Vst3Plugin,
 };
@@ -84,6 +84,10 @@ impl<P: Vst3Plugin> InitContext<P> for WrapperInitContext<'_, P> {
 impl<P: Vst3Plugin> ProcessContext<P> for WrapperProcessContext<'_, P> {
     fn plugin_api(&self) -> PluginApi {
         PluginApi::Vst3
+    }
+
+    fn process_mode(&self) -> ProcessMode {
+        self.inner.current_process_mode.load()
     }
 
     fn execute_background(&self, task: P::BackgroundTask) {

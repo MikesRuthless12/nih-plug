@@ -1,7 +1,7 @@
 //! A context passed during the process function.
 
 use super::PluginApi;
-use crate::prelude::{Plugin, PluginNoteEvent};
+use crate::prelude::{Plugin, PluginNoteEvent, ProcessMode};
 
 /// Contains both context data and callbacks the plugin can use during processing. Most notably this
 /// is how a plugin sends and receives note events, gets transport information, and accesses
@@ -15,6 +15,13 @@ use crate::prelude::{Plugin, PluginNoteEvent};
 pub trait ProcessContext<P: Plugin> {
     /// Get the current plugin API.
     fn plugin_api(&self) -> PluginApi;
+
+    /// The processing mode this block is rendered in. This is
+    /// [`BufferConfig::process_mode`][crate::prelude::BufferConfig::process_mode] as the plugin was
+    /// initialized with, **unless the host has changed it since**: a CLAP host may switch an
+    /// active instance to offline rendering (`clap_plugin_render::set`) without deactivating it,
+    /// so a plugin that must add nothing to a bounce should read it here, every block.
+    fn process_mode(&self) -> ProcessMode;
 
     /// Execute a task on a background thread using `[Plugin::task_executor]`. This allows you to
     /// defer expensive tasks for later without blocking either the process function or the GUI

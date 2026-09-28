@@ -10,6 +10,17 @@ Since there is no stable release yet, the changes are organized per day in
 reverse chronological order. The main purpose of this document in its current
 state is to list breaking changes.
 
+## [2026-09-28]
+
+### Added
+
+- `ProcessContext::process_mode()`: the processing mode of the block being
+  rendered. A CLAP host may switch an active instance to offline rendering
+  (`clap_plugin_render::set`) without deactivating it, so
+  `BufferConfig::process_mode` from `initialize()` can be stale; a plugin that
+  must add nothing to a bounce reads the mode here, every block. (Implementors
+  of `ProcessContext` outside nih-plug's own wrappers must add it.)
+
 ## [2025-02-23]
 
 ### Breaking changes

@@ -8,7 +8,7 @@ use std::sync::Arc;
 
 use super::wrapper::{OutputParamEvent, Task, Wrapper};
 use crate::event_loop::EventLoop;
-use crate::prelude::{
+use crate::prelude::{ProcessMode, 
     ClapPlugin, GuiContext, InitContext, ParamPtr, PluginApi, PluginNoteEvent, ProcessContext,
     RemoteControlsContext, RemoteControlsPage, RemoteControlsSection, Transport,
 };
@@ -93,6 +93,10 @@ impl<P: ClapPlugin> InitContext<P> for WrapperInitContext<'_, P> {
 impl<P: ClapPlugin> ProcessContext<P> for WrapperProcessContext<'_, P> {
     fn plugin_api(&self) -> PluginApi {
         PluginApi::Clap
+    }
+
+    fn process_mode(&self) -> ProcessMode {
+        self.wrapper.current_process_mode.load()
     }
 
     fn execute_background(&self, task: P::BackgroundTask) {

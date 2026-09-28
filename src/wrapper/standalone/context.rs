@@ -2,7 +2,7 @@ use std::sync::Arc;
 
 use super::backend::Backend;
 use super::wrapper::{Task, Wrapper};
-use crate::prelude::{
+use crate::prelude::{ProcessMode, 
     GuiContext, InitContext, ParamPtr, Plugin, PluginApi, PluginNoteEvent, ProcessContext,
     Transport,
 };
@@ -57,6 +57,11 @@ impl<P: Plugin, B: Backend<P>> InitContext<P> for WrapperInitContext<'_, P, B> {
 impl<P: Plugin, B: Backend<P>> ProcessContext<P> for WrapperProcessContext<'_, P, B> {
     fn plugin_api(&self) -> PluginApi {
         PluginApi::Standalone
+    }
+
+    /// The standalone always runs in real time.
+    fn process_mode(&self) -> ProcessMode {
+        ProcessMode::Realtime
     }
 
     fn execute_background(&self, task: P::BackgroundTask) {
