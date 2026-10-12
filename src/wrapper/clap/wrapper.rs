@@ -2505,11 +2505,16 @@ impl<P: ClapPlugin> Wrapper<P> {
         } else {
             index + num_input_ports
         };
+        // An in-place pair shares one buffer between the main input and the main output, so it
+        // only exists when they have the same channel count: a mono-in, stereo-out layout has none
+        // (clap-validator's `layout-audio-ports-config` refuses a pair that differs)
+        let main_ports_match = current_audio_io_layout.main_input_channels
+            == current_audio_io_layout.main_output_channels;
         let pair_stable_id = match (is_input, is_main_port) {
             // Ports are named linearly with inputs coming before outputs, so this is the index of
             // the first output port
-            (true, true) if has_main_output => num_input_ports,
-            (false, true) if has_main_input => 0,
+            (true, true) if has_main_output && main_ports_match => num_input_ports,
+            (false, true) if has_main_input && main_ports_match => 0,
             _ => CLAP_INVALID_ID,
         };
 
